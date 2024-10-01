@@ -127,7 +127,11 @@ class CurvesLoader:
             subset_path = os.path.join(output_dir, subset_name + ".txt")
             with open(subset_path, "w", encoding="utf-8") as file:
                 for filename in subset_filenames:
-                    file.write(filename + "\n")
+                    data = self.data[filename]
+                    file_indices = set(data.index)
+                    assert len(file_indices) == 1
+                    file_index = file_indices.pop()
+                    file.write(f"{file_index}, {filename}\n")
                     subsets[subset_name] = pd.concat([subsets[subset_name],
                                                       self.data[filename]])
 
