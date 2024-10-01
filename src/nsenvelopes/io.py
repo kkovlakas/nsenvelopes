@@ -1,3 +1,6 @@
+"""Module for reading curves from ZIP files and folders, ready for ML/DL."""
+
+
 import os
 import io
 import copy
@@ -22,11 +25,13 @@ WORKING_SUBSET_NAMES = ["train", "valid", "test"]
 
 
 def lines_reader(file):
+    """Read lines from a file in a ZIP archive or folder."""
     contents = io.TextIOWrapper(file, encoding='utf-8').readlines()
     return contents
 
 
 def csv_reader(file):
+    """Read CSV file from a ZIP archive or folder."""
     return pd.read_csv(io.TextIOWrapper(file, encoding='utf-8'))
 
 
@@ -68,6 +73,7 @@ def transform_dataframe(old_df, B_mag=None, B_ang=None,
 
 
 def dfile_reader(file, ignore_last_columns=2):
+    """Read NS envelope data from a file in a ZIP archive or folder."""
     lines = lines_reader(file)
 
     B_mag = None
@@ -117,6 +123,7 @@ def dfile_reader(file, ignore_last_columns=2):
 
 
 class CurvesLoader:
+    """Class for loading curve data from ZIP files and folders."""
     def __init__(self, path, txtreader=csv_reader, binreader=None,
                  maxfiles=None):
         self.path = self.set_path(path)
@@ -127,11 +134,13 @@ class CurvesLoader:
 
     @staticmethod
     def set_path(path):
+        """"Set the input path after performing checks."""
         if not os.path.exists(path):
             raise ValueError(f"Path {path} does not exist")
         return path
 
     def set_reader(self, txtreader, binreader):
+        """Set the file content reader."""
         if txtreader is None:
             if binreader is None:
                 raise ValueError("At least one reader must be specified.")
@@ -141,9 +150,11 @@ class CurvesLoader:
             return txtreader, False
 
     def load_data_from_dir(self, path, maxfiles=None):
+        """Load data from a directory."""
         raise NotImplementedError("`load_data_from_dir` not implemented yet.")
 
     def load_data_from_zip(self, path, maxfiles=None):
+        """Load data from a ZIP archive."""
         with zipfile.ZipFile(path) as zip_file:
             self.data = {}
             for filename in zip_file.namelist():
@@ -160,6 +171,7 @@ class CurvesLoader:
                             warnings.warn(f"File {filename} is empty.")
 
     def load_data(self, maxfiles=None):
+        """Load data from a file or directory."""
         if os.path.isdir(self.path):
             self.load_data_from_dir(self.path, maxfiles=maxfiles)
         elif os.path.isfile(self.path):
@@ -176,6 +188,7 @@ class CurvesLoader:
                      working_test=0.1,
                      # seed=None,
                      overwrite=True):
+        """Write the holdout/training/validation/test subsets."""
         if not 0 < holdout < 1:
             raise ValueError("`holdout_curves_fraction` must be in [0, 1).")
         if not 0 < working_test < 1:
@@ -223,13 +236,14 @@ class CurvesLoader:
             shuffle=True)
         del subsets["validtest"]
 
-        subsets = split_to_X_y(subsets, features, targets)
+        subsets = split_to_features_and_targets(subsets, features, targets)
         for key, subset in subsets.items():
             subpath = os.path.join(output_dir, key + ".csv")
             subset.to_csv(subpath, index=False)
 
 
 def split_list(original_list, fraction=0.3, shuffle=True):
+    """Split a list into two parts given the fraction of the second one."""
     size = len(original_list)
     assert 0 < fraction < 1 and size >= 2
     cut_at = size - max(1, int(np.round(size * fraction)))
@@ -240,12 +254,14 @@ def split_list(original_list, fraction=0.3, shuffle=True):
 
 
 def clear_folder(folder):
+    """Remove and recreate a folder."""
     if os.path.exists(folder):
         shutil.rmtree(folder)
     os.makedirs(folder, exist_ok=True)
 
 
-def split_to_X_y(subsets, features, targets):
+def split_to_features_and_targets(subsets, features, targets):
+    """Split subsets to X and y dataframes for machine/deep-learning."""
     arrays = {}
     for subset_name in subsets.keys():
         arrays["X_" + subset_name] = subsets[subset_name][features]
@@ -254,21 +270,22 @@ def split_to_X_y(subsets, features, targets):
 
 
 def load_subsets(subsets_dir):
+    """Load holdout/training/validatoin/test subsets from a directory."""
     data = {}
     subsets_to_search = WORKING_SUBSET_NAMES + [SUBSET_NAMES[0]]
     for subset_name in subsets_to_search:
-        X_name = "X_" + subset_name
+        x_name = "X_" + subset_name
         y_name = "y_" + subset_name
 
-        X_path = os.path.join(subsets_dir, X_name + ".csv")
+        x_path = os.path.join(subsets_dir, x_name + ".csv")
         y_path = os.path.join(subsets_dir, y_name + ".csv")
 
-        X_exists = os.path.exists(X_path)
+        x_exists = os.path.exists(x_path)
         y_exists = os.path.exists(y_path)
-        if X_exists and y_exists:
-            data[X_name] = pd.read_csv(X_path)
+        if x_exists and y_exists:
+            data[x_name] = pd.read_csv(x_path)
             data[y_name] = pd.read_csv(y_path)
-        elif X_exists or y_exists:
+        elif x_exists or y_exists:
             raise ValueError(f"Both X and y must exist for `{subset_name}`.")
 
     if len(data) == 0:
