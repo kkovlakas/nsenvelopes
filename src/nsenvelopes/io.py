@@ -228,8 +228,6 @@ class CurvesLoader:
             subpath = os.path.join(output_dir, key + ".csv")
             subset.to_csv(subpath, index=False)
 
-        return subsets.keys()
-
 
 def split_list(original_list, fraction=0.3, shuffle=True):
     size = len(original_list)
@@ -253,3 +251,29 @@ def split_to_X_y(subsets, features, targets):
         arrays["X_" + subset_name] = subsets[subset_name][features]
         arrays["y_" + subset_name] = subsets[subset_name][targets]
     return arrays
+
+
+def load_subsets(subsets_dir):
+    data = {}
+    subsets_to_search = WORKING_SUBSET_NAMES + [SUBSET_NAMES[0]]
+    for subset_name in subsets_to_search:
+        X_name = "X_" + subset_name
+        y_name = "y_" + subset_name
+
+        X_path = os.path.join(subsets_dir, X_name + ".csv")
+        y_path = os.path.join(subsets_dir, y_name + ".csv")
+
+        X_exists = os.path.exists(X_path)
+        y_exists = os.path.exists(y_path)
+        if X_exists and y_exists:
+            data[X_name] = pd.read_csv(X_path)
+            data[y_name] = pd.read_csv(y_path)
+        elif X_exists or y_exists:
+            raise ValueError(f"Both X and y must exist for `{subset_name}`.")
+
+    if len(data) == 0:
+        raise ValueError("No data were loaded.")
+    if len(data) != 2 * len(subsets_to_search):
+        warnings.warn("Some data were not loaded.")
+
+    return data
