@@ -1,13 +1,24 @@
 import os
 import io
+import copy
+import random
+import shutil
 import zipfile
 import warnings
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
+
 
 MAX_LOGT = 10.0
 MAX_LOGRHO = 9.7
+
+FEATURE_COLUMNS = ["logrho", "logT", "logB_mag", "B_ang"]
+TARGET_COLUMNS = ["logTs"]
+
+SUBSET_NAMES = ["holdout", "working"]
+WORKING_SUBSET_NAMES = ["train", "valid", "test"]
 
 
 def lines_reader(file):
@@ -155,3 +166,90 @@ class CurvesLoader:
             self.load_data_from_zip(self.path, maxfiles=maxfiles)
         else:
             raise ValueError(f"Path `{self.path}` is not a file or directory.")
+
+    def make_subsets(self,
+                     output_dir,
+                     features=FEATURE_COLUMNS,
+                     targets=TARGET_COLUMNS,
+                     holdout=0.1,
+                     working_validation=0.1,
+                     working_test=0.1,
+                     # seed=None,
+                     overwrite=True):
+        if not 0 < holdout < 1:
+            raise ValueError("`holdout_curves_fraction` must be in [0, 1).")
+        if not 0 < working_test < 1:
+            raise ValueError("`included_curves_test` must be in [0, 1).")
+        if not 0 < working_validation < 1:
+            raise ValueError("`included_curves_validation` must be in [0, 1).")
+
+        if working_test + working_validation >= 1:
+            raise ValueError("Nothing will be left for training...")
+
+        filenames = np.array(list(self.data.keys()))
+        working_filenames, holdout_filenames = split_list(filenames,
+                                                          fraction=holdout)
+
+        if os.path.exists(output_dir):
+            if not overwrite:
+                raise ValueError(
+                    f"Directory `{output_dir}` already exists.")
+            if not os.path.isdir(output_dir):
+                raise ValueError(
+                    f"`{output_dir}` is not a directory. Cannot overwrite.")
+        clear_folder(output_dir)
+
+        subsets = {subsetname: pd.DataFrame() for subsetname in SUBSET_NAMES}
+
+        for subset_filenames, subset_name in zip(
+                [holdout_filenames, working_filenames], SUBSET_NAMES):
+            subset_path = os.path.join(output_dir, subset_name + ".txt")
+            with open(subset_path, "w", encoding="utf-8") as file:
+                for filename in subset_filenames:
+                    file.write(filename + "\n")
+                    subsets[subset_name] = pd.concat([subsets[subset_name],
+                                                      self.data[filename]],
+                                                     ignore_index=True)
+
+        subsets["train"], subsets["validtest"] = train_test_split(
+            subsets["working"], test_size=working_test + working_validation,
+            shuffle=True)
+        holdout = subsets["holdout"]
+        del subsets["working"]
+
+        subsets["valid"], subsets["test"] = train_test_split(
+            subsets["validtest"],
+            test_size=working_test / (working_test + working_validation),
+            shuffle=True)
+        del subsets["validtest"]
+
+        subsets = split_to_X_y(subsets, features, targets)
+        for key, subset in subsets.items():
+            subpath = os.path.join(output_dir, key + ".csv")
+            subset.to_csv(subpath, index=False)
+
+        return subsets.keys()
+
+
+def split_list(original_list, fraction=0.3, shuffle=True):
+    size = len(original_list)
+    assert 0 < fraction < 1 and size >= 2
+    cut_at = size - max(1, int(np.round(size * fraction)))
+    list_to_split = copy.deepcopy(original_list)
+    if shuffle:
+        random.shuffle(list_to_split)
+    return list_to_split[:cut_at], list_to_split[cut_at:]
+
+
+def clear_folder(folder):
+    if os.path.exists(folder):
+        shutil.rmtree(folder)
+    os.makedirs(folder, exist_ok=True)
+
+
+def split_to_X_y(subsets, features, targets):
+    arrays = {}
+    for subset_name in subsets.keys():
+        arrays["X_" + subset_name] = subsets[subset_name][features]
+        arrays["y_" + subset_name] = subsets[subset_name][targets]
+    return arrays
