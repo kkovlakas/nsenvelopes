@@ -105,7 +105,7 @@ def dfile_reader(file, ignore_last_columns=2):
     return data
 
 
-class EnvelopeData:
+class CurvesLoader:
     def __init__(self, path, txtreader=csv_reader, binreader=None,
                  maxfiles=None):
         self.path = self.set_path(path)
