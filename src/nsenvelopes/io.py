@@ -64,12 +64,13 @@ class CurvesLoader:
         """Load data from a ZIP archive."""
         with zipfile.ZipFile(path) as zip_file:
             self.data = {}
-            for filename in zip_file.namelist():
+            for fileindex, filename in enumerate(zip_file.namelist()):
                 if not filename.endswith('/'):
                     with zip_file.open(filename, "r") as file:
                         data = self.reader(file)
                         if data is not None:
                             data.filename = filename
+                            data.index = [fileindex] * len(data)
                             self.data[filename] = data
                             if maxfiles is not None:
                                 if len(self.data) >= maxfiles:
@@ -128,8 +129,7 @@ class CurvesLoader:
                 for filename in subset_filenames:
                     file.write(filename + "\n")
                     subsets[subset_name] = pd.concat([subsets[subset_name],
-                                                      self.data[filename]],
-                                                     ignore_index=True)
+                                                      self.data[filename]])
 
         subsets["train"], subsets["validtest"] = train_test_split(
             subsets["working"], test_size=working_test + working_validation,
@@ -146,7 +146,7 @@ class CurvesLoader:
         subsets = split_to_features_and_targets(subsets, features, targets)
         for key, subset in subsets.items():
             subpath = os.path.join(output_dir, key + ".csv")
-            subset.to_csv(subpath, index=False)
+            subset.to_csv(subpath, index_label="index")
 
 
 def split_list(original_list, fraction=0.3, shuffle=True):
@@ -190,8 +190,8 @@ def load_subsets(subsets_dir):
         x_exists = os.path.exists(x_path)
         y_exists = os.path.exists(y_path)
         if x_exists and y_exists:
-            data[x_name] = pd.read_csv(x_path)
-            data[y_name] = pd.read_csv(y_path)
+            data[x_name] = pd.read_csv(x_path, index_col="index")
+            data[y_name] = pd.read_csv(y_path, index_col="index")
         elif x_exists or y_exists:
             raise ValueError(f"Both X and y must exist for `{subset_name}`.")
 
