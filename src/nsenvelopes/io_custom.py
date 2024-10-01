@@ -1,5 +1,10 @@
 """Loading NS envelope data in the de Grandis et al. in prep. format."""
 
+
+# Disable pylint warnings on variable names (Physics quantities...)
+# pylint: disable=C0103
+
+
 import io
 import warnings
 import numpy as np
@@ -89,10 +94,6 @@ def transform_dataframe(old_df, B_mag=None, B_ang=None,
         return None
 
     new_df = pd.DataFrame()
-    # new_df.logB_mag = np.log10(B_mag)
-    # new_df.B_ang = B_ang
-
-    # new_df.logTs = np.min(logT)
     new_df["logrho"] = logrho
     new_df["logT"] = logT
     new_df["logB_mag"] = np.log10(B_mag)
