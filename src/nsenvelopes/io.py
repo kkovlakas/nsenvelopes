@@ -70,6 +70,7 @@ class CurvesLoader:
                         data = self.reader(file)
                         if data is not None:
                             data.filename = filename
+                            data["row"] = data.index
                             data.index = [fileindex] * len(data)
                             self.data[filename] = data
                             if maxfiles is not None:
@@ -173,10 +174,12 @@ def clear_folder(folder):
 
 def split_to_features_and_targets(subsets, features, targets):
     """Split subsets to X and y dataframes for machine/deep-learning."""
+    feature_cols = list(features) + ["row"]
+    target_cols = list(targets) + ["row"]
     arrays = {}
     for subset_name in subsets.keys():
-        arrays["X_" + subset_name] = subsets[subset_name][features]
-        arrays["y_" + subset_name] = subsets[subset_name][targets]
+        arrays["X_" + subset_name] = subsets[subset_name][feature_cols]
+        arrays["y_" + subset_name] = subsets[subset_name][target_cols]
     return arrays
 
 
