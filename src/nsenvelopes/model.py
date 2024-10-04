@@ -5,6 +5,7 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.regularizers import L1, L2, L1L2
+import keras_tuner
 
 
 DEFAULT_LAYER_WIDTHS = [256, 512, 1024, 2048, 4096]
@@ -28,22 +29,31 @@ VALID_REGULARIZERS = ["L1L2", "L1", "L2", None]
 class ModelArchitect:
     """Class for tuning and training SLFN models."""
     def __init__(self,
+                 subsets,
                  features,
                  targets,
+                 separate_holdout=True,
                  layer_widths=None,
                  learning_rates=None,
                  regularization_factors=None,
                  regularizer="L1L2",
                  initializer="he_normal",
                  activation="sigmoid"):
+        self.subsets = subsets
         self.features = features
         self.targets = targets
+        self.separate_holdout = separate_holdout
         self.layer_widths = layer_widths
         self.learning_rates = learning_rates
         self.regularization_factors = regularization_factors
         self.regularizer = regularizer
         self.initializer = initializer
         self.activation = activation
+
+        self.tuner = None
+        self.best_model = None
+        self.selected_model = None
+
         self._validity_check()
 
     def _validity_check(self):
@@ -71,7 +81,7 @@ class ModelArchitect:
             "`learning_rates` must be floats."
         assert np.all(self.learning_rates > 0), "`learning_rates` must be > 0."
 
-    def make_model(self, width=4096, learning_rate=0.01, reg_factor=0.001):
+    def _make_model(self, width=4096, learning_rate=0.01, reg_factor=0.001):
         """Create a SLFN model."""
         if self.regularizer is None:
             kernel_regularizer = None
@@ -97,7 +107,7 @@ class ModelArchitect:
         model.learning_rate = learning_rate
         return model
 
-    def model_builder(self, hyperparameters):
+    def _model_builder(self, hyperparameters):
         """Builder of models for the hyperparameter tuning."""
         n_neurons = hyperparameters.Choice(
             'neurons', values=self.layer_widths)
@@ -106,7 +116,7 @@ class ModelArchitect:
         regularization_factor = hyperparameters.Choice(
             'regularization_factor', values=self.regularization_factors)
 
-        model = self.make_model(width=n_neurons, learning_rate=learning_rate,
+        model = self._make_model(width=n_neurons, learning_rate=learning_rate,
                                 reg_factor=regularization_factor)
         # compile the model
         model.compile(
@@ -114,3 +124,9 @@ class ModelArchitect:
             optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
             metrics=["mean_squared_error", "mean_absolute_error"])
         return model
+
+    def tune(self, folder, project_name, objective="val_mean_absolute_error"):
+        """Tune the model by performing the hyperparameter search."""
+        self.tuner = keras_tuner.GridSearch(
+            self._model_builder, objective=objective,
+            directory=folder, project_name=project_name)
