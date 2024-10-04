@@ -1,11 +1,9 @@
 """Tuning and training of single hidden layer feedforward neural networks."""
 
 
-import numpy as np
-
 import tensorflow as tf
 from tensorflow.keras.regularizers import L1, L2, L1L2
-import keras_tuner
+from keras_tuner import GridSearch
 
 
 DEFAULT_LAYER_WIDTHS = [256, 512, 1024, 2048, 4096]
@@ -130,11 +128,27 @@ class ModelArchitect:
             metrics=["mean_squared_error", "mean_absolute_error"])
         return model
 
-    def tune(self, folder, project_name, objective="val_mean_absolute_error"):
+    def tune(self, folder, project_name, objective="val_mean_absolute_error",
+             n_epochs=100, batchsize=64, use_multiprocessing=True, n_cpus=11,
+             early_stopping_monitor='val_loss', early_stopping_patience=10):
         """Tune the model by performing the hyperparameter search."""
-        self.tuner = keras_tuner.GridSearch(
-            self._model_builder, objective=objective,
-            directory=folder, project_name=project_name)
+        self.tuner = GridSearch(self._model_builder, objective=objective,
+                                directory=folder, project_name=project_name)
+
+        stop_early = tf.keras.callbacks.EarlyStopping(
+            monitor=early_stopping_monitor, patience=early_stopping_patience)
+
+        x_train = self.subsets["X_train"][self.features]
+        y_train = self.subsets["y_train"][self.targets]
+        x_valid = self.subsets["X_valid"][self.features]
+        y_valid = self.subsets["y_valid"][self.targets]
+
+        self.tuner.search(
+            x_train, y_train, validation_data=[x_valid, y_valid],
+            epochs=n_epochs, batch_size=batchsize,
+            use_multiprocessing=use_multiprocessing, workers=n_cpus,
+            callbacks=[stop_early]
+        )
 
 
 def is_positive_list(lst, datatype):
