@@ -38,7 +38,8 @@ class ModelArchitect:
                  regularization_factors=None,
                  regularizer="L1L2",
                  initializer="he_normal",
-                 activation="sigmoid"):
+                 activation="sigmoid",
+                 verbose=True):
         self.subsets = subsets
         self.features = features
         self.targets = targets
@@ -49,12 +50,17 @@ class ModelArchitect:
         self.regularizer = regularizer
         self.initializer = initializer
         self.activation = activation
+        self.verbose = verbose
 
         self.tuner = None
         self.best_model = None
         self.selected_model = None
 
         self._validity_check()
+
+    def _say(self, *args, **kwargs):
+        if self.verbose:
+            print(*args, **kwargs)
 
     def _validity_check(self):
         if self.regularizer not in VALID_REGULARIZERS:
@@ -69,17 +75,17 @@ class ModelArchitect:
         if self.learning_rates is None:
             self.learning_rates = DEFAULT_LEARNING_RATES
         if self.regularization_factors is None:
-            self.regularizer_factors = DEFAULT_REGULARIZATION_FACTORS
+            self.regularization_factors = DEFAULT_REGULARIZATION_FACTORS
 
-        self.layer_widths = np.array(self.layer_widths)
-        assert np.issubdtype(self.layer_widths.dtype, np.integer), \
-            "`layer_widths` must be integers."
-        assert np.all(self.layer_widths > 0), "`layer_widths` must be > 0."
-
-        self.learning_rates = np.array(self.learning_rates)
-        assert np.issubdtype(self.learning_rates.dtype, np.floating), \
-            "`learning_rates` must be floats."
-        assert np.all(self.learning_rates > 0), "`learning_rates` must be > 0."
+        if not is_positive_list(self.layer_widths, int):
+            raise ValueError(
+                "`layer_widths` must be a list of positive ints.")
+        if not is_positive_list(self.learning_rates, float):
+            raise ValueError(
+                "`learning_rates` must be a list of positive floats.")
+        if not is_positive_list(self.regularization_factors, float):
+            raise ValueError(
+                "`Regularization_factors` is not a list of positive floats.")
 
     def _make_model(self, width=4096, learning_rate=0.01, reg_factor=0.001):
         """Create a SLFN model."""
@@ -110,15 +116,14 @@ class ModelArchitect:
     def _model_builder(self, hyperparameters):
         """Builder of models for the hyperparameter tuning."""
         n_neurons = hyperparameters.Choice(
-            'neurons', values=self.layer_widths)
+            'neurons', values=list(self.layer_widths))
         learning_rate = hyperparameters.Choice(
             'learning_rate', values=self.learning_rates)
         regularization_factor = hyperparameters.Choice(
             'regularization_factor', values=self.regularization_factors)
 
         model = self._make_model(width=n_neurons, learning_rate=learning_rate,
-                                reg_factor=regularization_factor)
-        # compile the model
+                                 reg_factor=regularization_factor)
         model.compile(
             loss="mean_squared_error",
             optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -130,3 +135,13 @@ class ModelArchitect:
         self.tuner = keras_tuner.GridSearch(
             self._model_builder, objective=objective,
             directory=folder, project_name=project_name)
+
+
+def is_positive_list(lst, datatype):
+    """Return False if `lst` is not a Python list of a specific `datatype`."""
+    if not isinstance(lst, list):
+        return False
+    for element in lst:
+        if not isinstance(element, datatype) or element <= 0:
+            return False
+    return True
