@@ -1,6 +1,10 @@
 """Tuning and training of single hidden layer feedforward neural networks."""
 
 
+# Disable warning regarding resolving `keras` - this is a known pylint issue
+# pylint: disable=E1101,E0401,E0611
+
+
 import tensorflow as tf
 from tensorflow.keras.regularizers import L1, L2, L1L2
 from keras_tuner import GridSearch

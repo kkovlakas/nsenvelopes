@@ -65,8 +65,9 @@ class CurvesLoader:
         """Load data from a ZIP archive."""
         with zipfile.ZipFile(path) as zip_file:
             self.data = {}
-            for fileindex, filename in tqdm(enumerate(zip_file.namelist()),
-                                            "Loading the files in the ZIP archive"):
+            for fileindex, filename in tqdm(
+                    enumerate(zip_file.namelist()),
+                    "Loading the files in the ZIP archive"):
                 if not filename.endswith('/'):
                     with zip_file.open(filename, "r") as file:
                         data = self.reader(file)
@@ -129,7 +130,8 @@ class CurvesLoader:
                 [holdout_filenames, working_filenames], SUBSET_NAMES):
             subset_path = os.path.join(output_dir, subset_name + ".txt")
             with open(subset_path, "w", encoding="utf-8") as file:
-                for filename in tqdm(subset_filenames, f"Making {subset_name}"):
+                for filename in tqdm(
+                        subset_filenames, f"Making {subset_name}"):
                     data = self.data[filename]
                     file_indices = set(data.index)
                     assert len(file_indices) == 1
