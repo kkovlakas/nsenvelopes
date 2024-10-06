@@ -5,6 +5,7 @@
 # pylint: disable=E1101,E0401,E0611
 
 
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.regularizers import L1, L2, L1L2
 from keras_tuner import GridSearch
@@ -153,6 +154,32 @@ class ModelArchitect:
             use_multiprocessing=use_multiprocessing, workers=n_cpus,
             callbacks=[stop_early]
         )
+
+    @staticmethod
+    def get_tuner_results(directory, project_name):
+        """Get the metrics from the hyperparameter tuning folder."""
+        model = ModelArchitect(subsets=None, features=None, targets=None)
+        tuner = GridSearch(model._model_builder, objective=None,
+                           directory=directory, project_name=project_name,
+                           overwrite=False)
+        trials = tuner.oracle.trials
+
+        a_trial = list(trials.values())[0]
+        metrics = list(a_trial.metrics.metrics.keys())
+        hypers = list(a_trial.hyperparameters.values.keys())
+        columns = ["trial"] + hypers + ["best_step", "score"] + metrics
+
+        results = {column: [] for column in columns}
+        for trial_id, trial in trials.items():
+            results["trial"].append(trial_id)
+            results["best_step"].append(trial.best_step)
+            results["score"].append(trial.score)
+            for hyper, hyper_value in trial.hyperparameters.values.items():
+                results[hyper].append(hyper_value)
+            for metric, metrics_data in trial.metrics.metrics.items():
+                results[metric].append(metrics_data.get_best_value())
+
+        return pd.DataFrame.from_dict(results)
 
 
 def is_positive_list(lst, datatype):
