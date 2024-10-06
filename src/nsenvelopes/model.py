@@ -31,18 +31,12 @@ VALID_REGULARIZERS = ["L1L2", "L1", "L2", None]
 
 class ModelArchitect:
     """Class for tuning and training SLFN models."""
-    def __init__(self,
-                 subsets,
-                 features,
-                 targets,
-                 separate_holdout=True,
-                 layer_widths=None,
-                 learning_rates=None,
-                 regularization_factors=None,
-                 regularizer="L1L2",
-                 initializer="he_normal",
-                 activation="sigmoid",
-                 verbose=True):
+    def __init__(
+            self, subsets, features, targets, separate_holdout=True,
+            layer_widths=None, learning_rates=None,
+            regularization_factors=None,
+            regularizer="L1L2", initializer="he_normal", activation="sigmoid",
+            verbose=True):
         self.subsets = subsets
         self.features = features
         self.targets = targets
@@ -54,18 +48,16 @@ class ModelArchitect:
         self.initializer = initializer
         self.activation = activation
         self.verbose = verbose
-
         self.tuner = None
-        self.best_model = None
-        self.selected_model = None
-
         self._validity_check()
 
     def _say(self, *args, **kwargs):
+        """Print the message if verbose is True."""
         if self.verbose:
             print(*args, **kwargs)
 
     def _validity_check(self):
+        """Check the validity of property values."""
         if self.regularizer not in VALID_REGULARIZERS:
             raise ValueError(f"Choose regularizer from {VALID_REGULARIZERS}.")
         if self.initializer not in VALID_INITIALIZERS:
@@ -91,7 +83,23 @@ class ModelArchitect:
                 "`Regularization_factors` is not a list of positive floats.")
 
     def _make_model(self, width=4096, learning_rate=0.01, reg_factor=0.001):
-        """Create a SLFN model."""
+        """Make a model given the # of nuerons, learning rate and reg. factor.
+
+        Parameters
+        ----------
+        width : int
+            The number of neurons in the hidden layer, by default 4096.
+        learning_rate : float
+            The learning rate for the ADAM optimizer, by default 0.01.
+        reg_factor : float
+            The regularization factor, by default 0.001.
+
+        Returns
+        -------
+        model
+            The sequential TensorFlow model for a single-hidden layer network.
+
+        """
         if self.regularizer is None:
             kernel_regularizer = None
         elif self.regularizer == "L1":
@@ -104,6 +112,7 @@ class ModelArchitect:
             raise ValueError(f"Unknown regularizer `{self.regularizer}`")
 
         def denselayer(width, activation):
+            """Create a dense layer of a given `width` and `activation`."""
             return tf.keras.layers.Dense(
                 width, activation=activation,
                 kernel_initializer=self.initializer,
@@ -136,7 +145,29 @@ class ModelArchitect:
     def tune(self, folder, project_name, objective="val_mean_absolute_error",
              n_epochs=100, batchsize=64, use_multiprocessing=True, n_cpus=11,
              early_stopping_monitor='val_loss', early_stopping_patience=10):
-        """Tune the model by performing the hyperparameter search."""
+        """Tune the model and save the results in the given folder.
+
+        Parameters
+        ----------
+        folder : str
+            The folder holding hyperparameter tuning results.
+        project_name : str
+            Name of the subfolder for the current tuning project.
+        objective : str,
+            The hyperparam. score metric, by default "val_mean_absolute_error".
+        n_epochs : int
+            Maximum number of epochs during the search, by default 100.
+        batchsize : int
+            Batch size for the training of the models, by default 64.
+        use_multiprocessing : bool
+            Whether to use multiprocessing, by default True.
+        n_cpus : int
+            Number of CPUs if `use_multiprocessing` is True, by default 11.
+        early_stopping_monitor : str
+            The metric to use to decide on early stopping. Default 'val_loss'.
+        early_stopping_patience : int
+            Number of steps to wait without improvement, by default 10.
+        """
         self.tuner = GridSearch(self._model_builder, objective=objective,
                                 directory=folder, project_name=project_name)
 
@@ -157,7 +188,23 @@ class ModelArchitect:
 
     @staticmethod
     def get_tuner_results(directory, project_name):
-        """Get the metrics from the hyperparameter tuning folder."""
+        """Get the metrics from the hyperparameter tuning folder.
+
+        Parameters
+        ----------
+        directory : _type_
+            _description_
+        project_name : _type_
+            _description_
+
+        Returns
+        -------
+        pandas DataFrame
+            A dataframe containing the hyperparameter tuning results, namely,
+            the IDs, hyperparameter choices, best step, score, as well as the
+            training and validation metrics (loss, mean absolute error, mean
+            squared error) of each trial.
+        """
         model = ModelArchitect(subsets=None, features=None, targets=None)
         tuner = GridSearch(model._model_builder, objective=None,
                            directory=directory, project_name=project_name,
@@ -183,7 +230,7 @@ class ModelArchitect:
 
 
 def is_positive_list(lst, datatype):
-    """Return False if `lst` is not a Python list of a specific `datatype`."""
+    """Check if `lst` is a list of positive numbers of a given `datatype`."""
     if not isinstance(lst, list):
         return False
     for element in lst:
