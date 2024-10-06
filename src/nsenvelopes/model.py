@@ -31,12 +31,42 @@ VALID_REGULARIZERS = ["L1L2", "L1", "L2", None]
 
 class ModelArchitect:
     """Class for tuning and training SLFN models."""
-    def __init__(
-            self, subsets, features, targets, separate_holdout=True,
-            layer_widths=None, learning_rates=None,
-            regularization_factors=None,
-            regularizer="L1L2", initializer="he_normal", activation="sigmoid",
-            verbose=True):
+    def __init__(self, subsets, features, targets,
+                 separate_holdout=True, layer_widths=None, learning_rates=None,
+                 regularization_factors=None, regularizer="L1L2",
+                 initializer="he_normal", activation="sigmoid", verbose=True):
+        """Initialize the ModelArchitect.
+
+        Parameters
+        ----------
+        subsets : dict
+            A dictionary with keys `X_train`, `y_train`, `X_valid`, `y_valid`,
+            corresponding to the features (`X_*`) and targets (`y_*`) in the
+            training (`_train`) and validation datasets (`_valid`).
+        features : list of str
+            A list of column names of the tables from the subsets, indicating
+            the features.
+        targets : list of str
+            A list of column names of the tables from the subsets, indicating
+            the targets. If only one target, use a single-element list.
+        separate_holdout : True
+            If a `_holdout` subset exists in addition to `_test`. Default True.
+        layer_widths : list of int
+            The different choices for the number of units in the hidden layer.
+        learning_rates : list of float
+            The different choices for the learning rate.
+        regularization_factors : list of float
+            The different choices for the regularization factor.
+        regularizer : str or None
+            The type of kernel regularizer to be used.
+            Choices are: L1, L2, L1L12 (default), and None (no regularization).
+        initializer : str
+            The name of the weight initializer. Default: "he_normal".
+        activation : str
+            The hidden layer's activation function. Default: "sigmoid".
+        verbose : bool
+            If True, report of various things.
+        """
         self.subsets = subsets
         self.features = features
         self.targets = targets
@@ -169,13 +199,11 @@ class ModelArchitect:
         stop_early = tf.keras.callbacks.EarlyStopping(
             monitor=early_stopping_monitor, patience=early_stopping_patience)
 
-        x_train = self.subsets["X_train"][self.features]
-        y_train = self.subsets["y_train"][self.targets]
-        x_valid = self.subsets["X_valid"][self.features]
-        y_valid = self.subsets["y_valid"][self.targets]
-
         self.tuner.search(
-            x_train, y_train, validation_data=[x_valid, y_valid],
+            self.subsets["X_train"][self.features],
+            self.subsets["y_train"][self.targets],
+            validation_data=[self.subsets["X_valid"][self.features],
+                             self.subsets["y_valid"][self.targets]],
             epochs=n_epochs, batch_size=batchsize,
             use_multiprocessing=use_multiprocessing, workers=n_cpus,
             callbacks=[stop_early]
@@ -206,12 +234,14 @@ class ModelArchitect:
                            overwrite=False)
         trials = tuner.oracle.trials
 
+        # use the first trial to get the column names for the results table
         a_trial = list(trials.values())[0]
         metrics = list(a_trial.metrics.metrics.keys())
         hypers = list(a_trial.hyperparameters.values.keys())
         columns = ["trial"] + hypers + ["best_step", "score"] + metrics
-
         results = {column: [] for column in columns}
+
+        # iterate the trials and fill in the information
         for trial_id, trial in trials.items():
             results["trial"].append(trial_id)
             results["best_step"].append(trial.best_step)
