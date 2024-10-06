@@ -5,10 +5,15 @@
 # pylint: disable=E1101,E0401,E0611
 
 
+import os
+import json
+
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.regularizers import L1, L2, L1L2
 from keras_tuner import GridSearch
+
+from nsenvelopes.io import clear_folder
 
 
 DEFAULT_LAYER_WIDTHS = [256, 512, 1024, 2048, 4096]
@@ -34,7 +39,8 @@ class ModelArchitect:
     def __init__(self, subsets, features, targets,
                  separate_holdout=True, layer_widths=None, learning_rates=None,
                  regularization_factors=None, regularizer="L1L2",
-                 initializer="he_normal", activation="sigmoid", verbose=True):
+                 initializer="he_normal", activation="sigmoid", batch_size=64,
+                 verbose=True):
         """Initialize the ModelArchitect.
 
         Parameters
@@ -77,6 +83,7 @@ class ModelArchitect:
         self.regularizer = regularizer
         self.initializer = initializer
         self.activation = activation
+        self.batch_size = batch_size
         self.verbose = verbose
         self.tuner = None
         self._validity_check()
@@ -101,6 +108,11 @@ class ModelArchitect:
             self.learning_rates = DEFAULT_LEARNING_RATES
         if self.regularization_factors is None:
             self.regularization_factors = DEFAULT_REGULARIZATION_FACTORS
+
+        if not isinstance(self.batch_size, int):
+            raise ValueError("Batch size must be an integer.")
+        if self.batch_size <= 1:
+            raise ValueError("Batch size must be greater than 1.")
 
         check_positive_list(self.layer_widths, int, "layer_widths")
         check_positive_list(self.learning_rates, float, "learning_rates")
@@ -150,7 +162,7 @@ class ModelArchitect:
         model.learning_rate = learning_rate
         return model
 
-    def _model_builder(self, hyperparameters):
+    def _hyper_model_builder(self, hyperparameters):
         """Builder of models for the hyperparameter tuning."""
         n_neurons = hyperparameters.Choice(
             'neurons', values=list(self.layer_widths))
@@ -159,16 +171,44 @@ class ModelArchitect:
         regularization_factor = hyperparameters.Choice(
             'regularization_factor', values=self.regularization_factors)
 
-        model = self._make_model(width=n_neurons, learning_rate=learning_rate,
-                                 reg_factor=regularization_factor)
+        return self.build_model(width=n_neurons, learning_rate=learning_rate,
+                                reg_factor=regularization_factor)
+
+    def build_model(self, width=4096, learning_rate=0.01, reg_factor=0.001):
+        """Create and build a single hidden layer TensorFlow model."""
+        model = self._make_model(
+            width=width, learning_rate=learning_rate, reg_factor=reg_factor)
         model.compile(
             loss="mean_squared_error",
             optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
             metrics=["mean_squared_error", "mean_absolute_error"])
         return model
 
+    def fit_model(self, model, epochs=100,
+                  plot=True, export_path=None,
+                  use_multiprocessing=True, n_cpus=11):
+        """Fit a built model, and export it with its history."""
+        self._say("Fitting the model...")
+        model.fit(self.subsets["X_train"][self.features],
+                  self.subsets["y_train"][self.targets],
+                  epochs=epochs, batch_size=self.batch_size,
+                  validation_data=[self.subsets["X_valid"][self.features],
+                                   self.subsets["y_valid"][self.targets]],
+                  verbose=int(self.verbose),
+                  use_multiprocessing=use_multiprocessing,
+                  workers=n_cpus)
+
+        self._say("Clearing folder and saving model...")
+        clear_folder(export_path)
+        model.save(export_path)
+
+        self._say("Exporting history...")
+        history_path = os.path.join(export_path, "history.json")
+        json.dump(model.history.history,
+                  open(history_path, "w", encoding="utf-8"))
+
     def tune(self, folder, project_name, objective="val_mean_absolute_error",
-             n_epochs=100, batchsize=64, use_multiprocessing=True, n_cpus=11,
+             n_epochs=100, use_multiprocessing=True, n_cpus=11,
              early_stopping_monitor='val_loss', early_stopping_patience=10):
         """Tune the model and save the results in the given folder.
 
@@ -182,8 +222,6 @@ class ModelArchitect:
             The hyperparam. score metric, by default "val_mean_absolute_error".
         n_epochs : int
             Maximum number of epochs during the search, by default 100.
-        batchsize : int
-            Batch size for the training of the models, by default 64.
         use_multiprocessing : bool
             Whether to use multiprocessing, by default True.
         n_cpus : int
@@ -204,7 +242,7 @@ class ModelArchitect:
             self.subsets["y_train"][self.targets],
             validation_data=[self.subsets["X_valid"][self.features],
                              self.subsets["y_valid"][self.targets]],
-            epochs=n_epochs, batch_size=batchsize,
+            epochs=n_epochs, batch_size=self.batch_size,
             use_multiprocessing=use_multiprocessing, workers=n_cpus,
             callbacks=[stop_early]
         )
@@ -229,7 +267,7 @@ class ModelArchitect:
             squared error) of each trial.
         """
         model = ModelArchitect(subsets=None, features=None, targets=None)
-        tuner = GridSearch(model._model_builder, objective=None,
+        tuner = GridSearch(model._hyper_model_builder, objective=None,
                            directory=directory, project_name=project_name,
                            overwrite=False)
         trials = tuner.oracle.trials
