@@ -72,15 +72,10 @@ class ModelArchitect:
         if self.regularization_factors is None:
             self.regularization_factors = DEFAULT_REGULARIZATION_FACTORS
 
-        if not is_positive_list(self.layer_widths, int):
-            raise ValueError(
-                "`layer_widths` must be a list of positive ints.")
-        if not is_positive_list(self.learning_rates, float):
-            raise ValueError(
-                "`learning_rates` must be a list of positive floats.")
-        if not is_positive_list(self.regularization_factors, float):
-            raise ValueError(
-                "`Regularization_factors` is not a list of positive floats.")
+        check_positive_list(self.layer_widths, int, "layer_widths")
+        check_positive_list(self.learning_rates, float, "learning_rates")
+        check_positive_list(self.regularization_factors, float,
+                            "regularization_factors")
 
     def _make_model(self, width=4096, learning_rate=0.01, reg_factor=0.001):
         """Make a model given the # of nuerons, learning rate and reg. factor.
@@ -229,11 +224,10 @@ class ModelArchitect:
         return pd.DataFrame.from_dict(results)
 
 
-def is_positive_list(lst, datatype):
+def check_positive_list(lst, datatype, name):
     """Check if `lst` is a list of positive numbers of a given `datatype`."""
     if not isinstance(lst, list):
-        return False
+        raise ValueError(f"`{name}` must be a list.")
     for element in lst:
         if not isinstance(element, datatype) or element <= 0:
-            return False
-    return True
+            raise ValueError(f"`{name}` must contain positive {datatype}s.")
