@@ -189,6 +189,8 @@ class ModelArchitect:
 
     def fit_model(self, model, epochs=100,
                   plot=True, export_path=None,
+                  early_stopping_monitor='val_loss',
+                  early_stopping_patience=10,
                   use_multiprocessing=True, n_cpus=11):
         """Fit a built model, and export it with its history."""
 
@@ -203,14 +205,18 @@ class ModelArchitect:
 
             callbacks.append(
                 PlotLossesKeras(
-                    outputs=[MatplotlibPlot(max_cols=len(test_metrics)+1,
-                                            cell_size=(4, 2),
-                                            after_subplot=custom_after_subplot),
-                             ExtremaPrinter()]
-                    )
+                    outputs=[ExtremaPrinter(),
+                             MatplotlibPlot(
+                                 max_cols=len(test_metrics)+1,
+                                 cell_size=(4, 2),
+                                 after_subplot=custom_after_subplot)]))
+        if early_stopping_monitor is not None:
+            callbacks.append(
+                tf.keras.callbacks.EarlyStopping(
+                    monitor=early_stopping_monitor,
+                    patience=early_stopping_patience,
+                    restore_best_weights=True)
                 )
-        else:
-            callbacks = []
 
         self._say("Fitting the model...")
         model.fit(self.subsets["X_train"][self.features],
@@ -258,8 +264,12 @@ class ModelArchitect:
         self.tuner = GridSearch(self._model_builder, objective=objective,
                                 directory=folder, project_name=project_name)
 
-        stop_early = tf.keras.callbacks.EarlyStopping(
-            monitor=early_stopping_monitor, patience=early_stopping_patience)
+        callbacks = []
+        if early_stopping_monitor is not None:
+            callbacks.append(tf.keras.callbacks.EarlyStopping(
+                monitor=early_stopping_monitor,
+                patience=early_stopping_patience,
+                restore_best_weights=True))
 
         self.tuner.search(
             self.subsets["X_train"][self.features],
@@ -268,7 +278,7 @@ class ModelArchitect:
                              self.subsets["y_valid"][self.targets]],
             epochs=n_epochs, batch_size=self.batch_size,
             use_multiprocessing=use_multiprocessing, workers=n_cpus,
-            callbacks=[stop_early]
+            callbacks=callbacks
         )
 
     @staticmethod
