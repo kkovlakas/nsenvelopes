@@ -13,6 +13,9 @@ import tensorflow as tf
 from tensorflow.keras.regularizers import L1, L2, L1L2
 from keras_tuner import GridSearch
 
+from livelossplot import PlotLossesKeras
+from livelossplot.outputs import MatplotlibPlot, ExtremaPrinter
+
 from nsenvelopes.io import clear_folder
 
 
@@ -188,13 +191,34 @@ class ModelArchitect:
                   plot=True, export_path=None,
                   use_multiprocessing=True, n_cpus=11):
         """Fit a built model, and export it with its history."""
+
+        callbacks = []
+        if plot:
+            test_metrics = ["mean_squared_error", "mean_absolute_error"]
+
+            def custom_after_subplot(ax, group, x_label):
+                """Make logarithmic scale on loss chart."""
+                ax.semilogy()
+                ax.set_xlabel(x_label)
+
+            callbacks.append(
+                PlotLossesKeras(
+                    outputs=[MatplotlibPlot(max_cols=len(test_metrics)+1,
+                                            cell_size=(4, 2),
+                                            after_subplot=custom_after_subplot),
+                             ExtremaPrinter()]
+                    )
+                )
+        else:
+            callbacks = []
+
         self._say("Fitting the model...")
         model.fit(self.subsets["X_train"][self.features],
                   self.subsets["y_train"][self.targets],
                   epochs=epochs, batch_size=self.batch_size,
                   validation_data=[self.subsets["X_valid"][self.features],
                                    self.subsets["y_valid"][self.targets]],
-                  verbose=int(self.verbose),
+                  verbose=int(self.verbose), callbacks=callbacks,
                   use_multiprocessing=use_multiprocessing,
                   workers=n_cpus)
 
