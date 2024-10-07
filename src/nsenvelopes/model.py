@@ -187,14 +187,19 @@ class ModelArchitect:
             metrics=["mean_squared_error", "mean_absolute_error"])
         return model
 
-    def fit_model(self, model, epochs=100,
-                  plot=True, export_path=None,
-                  early_stopping_monitor='val_loss',
-                  early_stopping_patience=10,
-                  use_multiprocessing=True, n_cpus=11):
-        """Fit a built model, and export it with its history."""
-
+    @staticmethod
+    def _get_callbacks(early_stopping_monitor='val_loss',
+                       early_stopping_patience=10,
+                       plot=True):
+        """Get the callbacks for the model fitting or hyperparameter tuning."""
         callbacks = []
+
+        if early_stopping_monitor is not None:
+            callbacks.append(tf.keras.callbacks.EarlyStopping(
+                monitor=early_stopping_monitor,
+                patience=early_stopping_patience,
+                restore_best_weights=True)
+                )
         if plot:
             test_metrics = ["mean_squared_error", "mean_absolute_error"]
 
@@ -210,13 +215,20 @@ class ModelArchitect:
                                  max_cols=len(test_metrics)+1,
                                  cell_size=(4, 2),
                                  after_subplot=custom_after_subplot)]))
-        if early_stopping_monitor is not None:
-            callbacks.append(
-                tf.keras.callbacks.EarlyStopping(
-                    monitor=early_stopping_monitor,
-                    patience=early_stopping_patience,
-                    restore_best_weights=True)
-                )
+
+        return callbacks
+
+    def fit_model(self, model, epochs=100,
+                  plot=True, export_path=None,
+                  early_stopping_monitor='val_loss',
+                  early_stopping_patience=10,
+                  use_multiprocessing=True, n_cpus=11):
+        """Fit a built model, and export it with its history."""
+
+        callbacks = self._get_callbacks(
+            early_stopping_monitor=early_stopping_monitor,
+            early_stopping_patience=early_stopping_patience,
+            plot=plot)
 
         self._say("Fitting the model...")
         model.fit(self.subsets["X_train"][self.features],
@@ -264,12 +276,10 @@ class ModelArchitect:
         self.tuner = GridSearch(self._model_builder, objective=objective,
                                 directory=folder, project_name=project_name)
 
-        callbacks = []
-        if early_stopping_monitor is not None:
-            callbacks.append(tf.keras.callbacks.EarlyStopping(
-                monitor=early_stopping_monitor,
-                patience=early_stopping_patience,
-                restore_best_weights=True))
+        callbacks = self._get_callbacks(
+            early_stopping_monitor=early_stopping_monitor,
+            early_stopping_patience=early_stopping_patience,
+            plot=False)
 
         self.tuner.search(
             self.subsets["X_train"][self.features],
