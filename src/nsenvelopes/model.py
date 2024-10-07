@@ -42,7 +42,7 @@ class ModelArchitect:
     def __init__(self, subsets, features, targets,
                  separate_holdout=True, layer_widths=None, learning_rates=None,
                  regularization_factors=None, regularizer="L1L2",
-                 initializer="he_normal", activation="sigmoid", batch_size=64,
+                 initializer="he_normal", activation="sigmoid", batch_size=256,
                  verbose=True):
         """Initialize the ModelArchitect.
 
