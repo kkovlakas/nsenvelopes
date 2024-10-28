@@ -273,7 +273,7 @@ class ModelArchitect:
         early_stopping_patience : int
             Number of steps to wait without improvement, by default 10.
         """
-        self.tuner = GridSearch(self._model_builder, objective=objective,
+        self.tuner = GridSearch(self._hyper_model_builder, objective=objective,
                                 directory=folder, project_name=project_name)
 
         callbacks = self._get_callbacks(
