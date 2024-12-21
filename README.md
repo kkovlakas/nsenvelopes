@@ -11,14 +11,17 @@ for training simple neural networks that approximate the Tb-Ts relation.
 
 ## Installation
 
-Simply download or clone the source, switch to your favourite environment,
-and run
+Installation is required **only** if you wish to train your own neural networks to approximate the Tb-Ts relation, or any other relation of similar structure (e.g., initial-final value of a quantity that evolves in space, time, or another variable.)
+
+Simply download or clone the source, switch to your favourite environment, and run
 
 `pip install .`
 
 from the top level of the repository.
 
-## Examples
+## Examples (no installation required)
+
+These are examples of using models trained using `nsenvelopes`, but do not require the package to be loaded. In fact, `tensorflow` can be used to load them (Example 1), or alternatively, a custom function to load the model from a text file, having no dependency other than `numpy`.
 
 ### Example 1: Reading a trained `tensorflow` model
 
@@ -61,6 +64,8 @@ For example:
 For example, the following code shows how to read the weights/biases in Python, but can easily be adapted for different languages:
 
 ```python
+import numpy as np
+
 def parse_numbers(line, n_expected=1, is_float=True):
     converter = float if is_float else int
     numbers = [converter(word) for word in line.strip().split()]
