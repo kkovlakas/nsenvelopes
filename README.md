@@ -6,7 +6,7 @@
 that is the relation between the bottom and surface  temperature of the envelope
 of the neutron star. While published parametric fits exist, new physics and
 additional parameters require the construction of new relations, based on
-envelope simulations. The `nsenvelops` package aims at providing a framework
+envelope simulations. The `nsenvelopes` package aims at providing a framework
 for training simple neural networks that approximate the Tb-Ts relation.
 
 ## Installation
@@ -50,7 +50,7 @@ hidden layer follow: $n$ lines, each with $m$ space-separated numbers. Consequnt
 
 For example:
 
-```
+```plain
 4
 2048
 0.00080214 -0.00008899 0.00195929 -0.00178556
