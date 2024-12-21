@@ -11,8 +11,9 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
 
 
 SUBSET_NAMES = ["holdout", "working"]
@@ -212,3 +213,31 @@ def load_subsets(subsets_dir):
         warnings.warn("Some data were not loaded.")
 
     return data
+
+
+def export_weights_to_txt(model_path, txt_path):
+    """Export the weights of a model to a text file."""
+    # model = tf.saved_model.load(model_path, compile=False)
+    model = tf.keras.models.load_model(model_path, compile=False)
+    weights = model.get_weights()
+    n_input = weights[0].shape[0]
+    dense_weights, dense_bias, out_weights, out_bias = [
+        arr.numpy().squeeze() for arr in model.variables]
+    n_neurons = dense_weights.shape[1]
+
+    all_weights = []
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(f"{n_input}\n")
+        f.write(f"{n_neurons}\n")
+        for i in range(n_neurons):
+            row = dense_weights[:, i]
+            all_weights.extend(row)
+            f.write(" ".join([f"{element:.8f}" for element in row]) + "\n")
+        all_weights.extend(dense_bias)
+        for element in dense_bias:
+            f.write(f"{element:.8f}\n")
+        all_weights.extend(out_weights)
+        for element in out_weights:
+            f.write(f"{element:.8f}\n")
+        f.write(f"{out_bias:.8f}\n")
+        all_weights.append(out_bias)
