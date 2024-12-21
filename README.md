@@ -19,6 +19,16 @@ Simply download or clone the source, switch to your favourite environment, and r
 
 from the top level of the repository.
 
+## Data
+
+In the folder `data/20241029` you will find the trained models as of 2024/10/29 for the Fe and H envelopes, in two formats: exported `tensorflow` model (`*_TF.zip`) or text files containing the weights and biases of the networks (`*.txt.zip`):
+* `Fe_TF.zip`: tensorflow model for the Fe envelope
+* `H_TF.zip`: same as above for the H envelope
+* `Fe.txt.zip`: weights/biases to be loaded manually for the Fe enevelope
+* `H.txt.zip`: same as above for the H envelope
+
+See **Examples** for instructions on reading and using these files.
+
 ## Examples (no installation required)
 
 These are examples of using models trained using `nsenvelopes`, but do not require the package to be loaded. In fact, `tensorflow` can be used to load them (Example 1), or alternatively, a custom function to load the model from a text file, having no dependency other than `numpy`.
@@ -28,7 +38,7 @@ These are examples of using models trained using `nsenvelopes`, but do not requi
 The trained models are provided as exported `tensorflow` models, and therefore
 can be used directly by all platforms and programming languages supported by
 `tensorflow` (e.g., Python, C++, Javascript). Here we show how the model can be
-loaded from its folder, and applied for a given set of input parameters:
+loaded from its folder (e.g., after unzipping the models in `data/20241029`), and applied for a given set of input parameters:
 
 ```python
 import tensorflow as tf
@@ -47,7 +57,7 @@ logT_s_grid = model.predict(input_2d)
 
 ### Example 2: Reading weights from a text file
 
-For compatibility with any programming language, we also provide text files that list all weights and biases. The first two lines
+For compatibility with any programming language, we also provide text files (`data/20241029/*.txt.zip`) that list all weights and biases. The first two lines
 holds the number of inputs $m$ (here, 4) and the number of units in the hidden layer $n$. Then, the weights between the input and
 hidden layer follow: $n$ lines, each with $m$ space-separated numbers. Consequntly, $n$ lines representing the biases in the hidden layers, and another $n$ lines for the weights between the hidden and the output layer. The last line holds the bias of the output unit.
 
@@ -92,3 +102,11 @@ Then, the feedforward propagation step is simply
 ```python
 np.dot(w_out, 1 / (1 + np.exp(-(np.dot(w_hid, X) + b_hid)))) + b_out
 ```
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+## Authors
+
+Konstantinos Kovlakas
