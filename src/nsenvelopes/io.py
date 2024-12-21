@@ -12,6 +12,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 
 SUBSET_NAMES = ["holdout", "working"]
@@ -64,12 +65,15 @@ class CurvesLoader:
         """Load data from a ZIP archive."""
         with zipfile.ZipFile(path) as zip_file:
             self.data = {}
-            for fileindex, filename in enumerate(zip_file.namelist()):
+            for fileindex, filename in tqdm(
+                    enumerate(zip_file.namelist()),
+                    "Loading the files in the ZIP archive"):
                 if not filename.endswith('/'):
                     with zip_file.open(filename, "r") as file:
                         data = self.reader(file)
                         if data is not None:
                             data.filename = filename
+                            data["row"] = data.index
                             data.index = [fileindex] * len(data)
                             self.data[filename] = data
                             if maxfiles is not None:
@@ -126,7 +130,8 @@ class CurvesLoader:
                 [holdout_filenames, working_filenames], SUBSET_NAMES):
             subset_path = os.path.join(output_dir, subset_name + ".txt")
             with open(subset_path, "w", encoding="utf-8") as file:
-                for filename in subset_filenames:
+                for filename in tqdm(
+                        subset_filenames, f"Making {subset_name}"):
                     data = self.data[filename]
                     file_indices = set(data.index)
                     assert len(file_indices) == 1
@@ -173,10 +178,12 @@ def clear_folder(folder):
 
 def split_to_features_and_targets(subsets, features, targets):
     """Split subsets to X and y dataframes for machine/deep-learning."""
+    feature_cols = list(features) + ["row"]
+    target_cols = list(targets) + ["row"]
     arrays = {}
     for subset_name in subsets.keys():
-        arrays["X_" + subset_name] = subsets[subset_name][features]
-        arrays["y_" + subset_name] = subsets[subset_name][targets]
+        arrays["X_" + subset_name] = subsets[subset_name][feature_cols]
+        arrays["y_" + subset_name] = subsets[subset_name][target_cols]
     return arrays
 
 
