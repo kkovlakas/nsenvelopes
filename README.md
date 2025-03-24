@@ -110,4 +110,4 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ## Authors
 
 * Konstantinos Kovlakas (kkovla@gmail.com)
-* Davide De Grandis
+* Davide De Grandis (degrandis@ice.csic.es)
