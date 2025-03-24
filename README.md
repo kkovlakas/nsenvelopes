@@ -109,5 +109,5 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 ## Authors
 
-Konstantinos Kovlakas
-Davide De Grandis
+* Konstantinos Kovlakas
+* Davide De Grandis
